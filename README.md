@@ -8,6 +8,11 @@ Todas as aulas em áudio. 1 a 585 com 4 aulas de introdução ao COF.
 
 Escutar Áudios: https://archive.org/details/COFemAudio
 
+## EPUBs e leitor
+
+- [epubs/](epubs/) — aulas revisadas em EPUB (COF001–COF011), com título e capítulos.
+- [visualizador/](visualizador/) — leitor local que abre no navegador; instruções em
+  [visualizador/LEIA-ME.md](visualizador/LEIA-ME.md).
 
 ## Revisão pendente
 

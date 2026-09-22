@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualizador de EPUBs — Curso Online de Filosofia</title>
+<style>
+  :root {
+    --bg: #eceff1;
+    --painel: #ffffff;
+    --tinta: #1f2933;
+    --suave: #6b7a86;
+    --borda: #d7dee3;
+    --destaque: #0b6e4f;
+    --destaque-suave: #e3f2ec;
+    --sombra: 0 1px 4px rgba(0, 0, 0, .08);
+  }
+  html[data-theme="sepia"] {
+    --bg: #efe5d0;
+    --painel: #f8f1e3;
+    --tinta: #40342a;
+    --suave: #8a7a63;
+    --borda: #ddcfb4;
+    --destaque: #7a5230;
+    --destaque-suave: #f0e2c8;
+  }
+  html[data-theme="escuro"] {
+    --bg: #101214;
+    --painel: #1a1d20;
+    --tinta: #d7dbde;
+    --suave: #8b949c;
+    --borda: #2c3237;
+    --destaque: #6fb98f;
+    --destaque-suave: #223028;
+    --sombra: 0 1px 4px rgba(0, 0, 0, .5);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    flex-direction: column;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--tinta);
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .8rem;
+    background: var(--painel);
+    border-bottom: 1px solid var(--borda);
+    box-shadow: var(--sombra);
+    z-index: 5;
+  }
+  header .logo { font-size: 1.15rem; }
+  header .marca { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .marca small { display: block; font-weight: 400; color: var(--suave); font-size: .75rem; }
+  header .espaco { flex: 1; }
+  button, .botao {
+    font: inherit;
+    font-size: .85rem;
+    padding: .35rem .7rem;
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    background: var(--painel);
+    color: var(--tinta);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover, .botao:hover { background: var(--destaque-suave); border-color: var(--destaque); }
+  button:disabled { opacity: .4; cursor: default; }
+  header .dir { display: flex; gap: .4rem; }
+  main { flex: 1; display: flex; min-height: 0; }
+  aside {
+    width: 310px;
+    min-width: 230px;
+    display: flex;
+    flex-direction: column;
+    background: var(--painel);
+    border-right: 1px solid var(--borda);
+    overflow: hidden;
+  }
+  aside section { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+  #toc { flex: 1 1 auto; min-height: 0; }
+
+  #prateleira { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #prateleiraBarra { display: flex; align-items: center; gap: .8rem; padding: .7rem 1.1rem .5rem; }
+  #libCount { font-size: .8rem; color: var(--suave); }
+  #grade {
+    flex: 1; min-height: 0; overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 1.2rem 1rem;
+    align-content: start;
+    padding: .6rem 1.1rem 1.6rem;
+  }
+  .card {
+    display: flex; flex-direction: column; gap: .45rem;
+    background: none; border: 0; padding: 0;
+    font: inherit; color: inherit; text-align: left; cursor: pointer;
+    white-space: normal;
+  }
+  .card .capa {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--painel);
+    box-shadow: 0 2px 7px rgba(0, 0, 0, .22);
+    transition: transform .13s ease, box-shadow .13s ease;
+  }
+  .card:hover .capa { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
+  .card .capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card.ativo .capa { outline: 3px solid var(--destaque); outline-offset: 2px; }
+  .card .titulo { font-size: .86rem; font-weight: 600; line-height: 1.25; }
+  .card .sub { font-size: .74rem; color: var(--suave); }
+  .capa-falsa {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 10% 9% 9%;
+    color: #f3ead9;
+    font-family: Georgia, "Times New Roman", serif;
+    background: linear-gradient(90deg, rgba(0, 0, 0, .28), rgba(0, 0, 0, 0) 9%),
+                linear-gradient(160deg, hsl(var(--h, 210), 32%, 30%), hsl(var(--h2, 250), 38%, 16%));
+  }
+  .capa-falsa .cf-topo { font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+  .capa-falsa .cf-titulo { font-size: .95rem; font-weight: 600; line-height: 1.25; }
+  .capa-falsa .cf-base { font-size: .68rem; opacity: .85; }
+
+  body[data-modo="prateleira"] aside,
+  body[data-modo="prateleira"] #readerWrap,
+  body[data-modo="prateleira"] footer,
+  body[data-modo="prateleira"] #btnPrateleira,
+  body[data-modo="prateleira"] #btnMenu { display: none; }
+  body[data-modo="leitura"] #prateleira { display: none; }
+  aside h2 {
+    margin: 0;
+    padding: .55rem .8rem .45rem;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--suave);
+  }
+  #filtro {
+    flex: 1; max-width: 360px;
+    padding: .4rem .6rem;
+    font: inherit;
+    font-size: .88rem;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    background: var(--painel);
+    color: var(--tinta);
+  }
+  ul.lista { list-style: none; margin: 0; padding: 0 .5rem .6rem; overflow-y: auto; }
+  #tocPanel ul.lista li {
+    font-size: .86rem;
+    padding: .3rem .5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--tinta);
+  }
+  #tocPanel ul.lista li:hover { background: var(--destaque-suave); }
+  #tocPanel ul.lista li.atual { background: var(--destaque-suave); font-weight: 600; }
+  #tocPanel ul.lista li.indisponivel { opacity: .45; cursor: default; }
+  #readerWrap { flex: 1; min-width: 0; position: relative; display: flex; }
+  #reader { flex: 1; border: 0; width: 100%; background: #fff; }
+  footer {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .45rem .8rem;
+    background: var(--painel);
+    border-top: 1px solid var(--borda);
+  }
+  #pos { font-size: .82rem; color: var(--suave); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #trilha { flex: 1; height: 5px; border-radius: 3px; background: var(--borda); overflow: hidden; }
+  #barra { height: 100%; width: 0; background: var(--destaque); transition: width .2s; }
+  #toast {
+    position: fixed; left: 50%; bottom: 3.2rem; transform: translateX(-50%) translateY(1rem);
+    background: #263238; color: #fff; padding: .55rem .9rem; border-radius: 8px;
+    font-size: .85rem; opacity: 0; pointer-events: none; transition: all .25s; max-width: 80%;
+    z-index: 20;
+  }
+  html[data-theme="escuro"] #toast { background: #eceff1; color: #1f2933; }
+  #toast.mostra { opacity: 1; transform: translateX(-50%) translateY(0); }
+  body.arrastando::after {
+    content: "Solte o arquivo .epub para adicioná-lo à biblioteca";
+    position: fixed; inset: 12px; z-index: 30;
+    border: 3px dashed var(--destaque); border-radius: 14px;
+    background: var(--destaque-suave);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 600; color: var(--destaque);
+    pointer-events: none;
+  }
+  #btnMenu { display: none; }
+  @media (max-width: 760px) {
+    aside { position: fixed; left: 0; top: 0; bottom: 0; z-index: 10; transform: translateX(-100%); transition: transform .2s; box-shadow: var(--sombra); }
+    body.menu aside { transform: none; }
+    #btnMenu { display: inline-block; }
+  }
+</style>
+</head>
+<body data-modo="prateleira">
+
+<header>
+  <button id="btnMenu" title="Sumário">☰</button>
+  <span class="logo">📖</span>
+  <div class="marca">
+    Curso Online de Filosofia
+    <small id="bookTitle">Selecione uma aula na prateleira</small>
+  </div>
+  <div class="espaco"></div>
+  <div class="dir">
+    <button id="btnPrateleira" title="Voltar à prateleira de capas">📚 Prateleira</button>
+    <button id="btnFonteMenos" title="Diminuir letra">A−</button>
+    <button id="btnFonteMais" title="Aumentar letra">A+</button>
+    <button id="btnTema" title="Alternar tema claro/sépia/escuro">🌓 Tema</button>
+    <button id="btnRecarregar" title="Reescanear a pasta da biblioteca">↻</button>
+    <button id="btnAbrir" title="Carregar um arquivo .epub do computador">Abrir EPUB…</button>
+  </div>
+</header>
+
+<main>
+  <section id="prateleira">
+    <div id="prateleiraBarra">
+      <input id="filtro" type="search" placeholder="Filtrar por aula, título…">
+      <span id="libCount"></span>
+    </div>
+    <div id="grade"></div>
+  </section>
+
+  <aside id="sidebar">
+    <section id="tocPanel">
+      <h2>Sumário</h2>
+      <ul class="lista" id="toc"></ul>
+    </section>
+  </aside>
+
+  <div id="readerWrap">
+    <iframe id="reader" title="Leitor de EPUB"></iframe>
+  </div>
+</main>
+
+<footer>
+  <button id="prev" title="Capítulo anterior">◀</button>
+  <span id="pos">—</span>
+  <div id="trilha"><div id="barra"></div></div>
+  <button id="next" title="Próximo capítulo">▶</button>
+</footer>
+
+<input type="file" id="arquivo" accept=".epub,application/epub+zip" hidden>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var reader = $("reader");
+
+  var state = {
+    books: [],
+    book: null,
+    idx: 0,
+    ratio: 0,
+    fontSize: parseInt(localStorage.getItem("cofvis:font") || "18", 10) || 18,
+    theme: localStorage.getItem("cofvis:theme") || "claro"
+  };
+
+  var TEMAS = ["claro", "sepia", "escuro"];
+
+  var IFRAME_JS = [
+    "(function(){",
+    "  function send(m){ try{ m.src='cofvis'; parent.postMessage(m,'*'); }catch(e){} }",
+    "  document.addEventListener('click', function(e){",
+    "    var a = e.target && e.target.closest ? e.target.closest('a') : null;",
+    "    if(!a) return;",
+    "    var href = a.getAttribute('href') || '';",
+    "    if(!href) return;",
+    "    e.preventDefault();",
+    "    send({type:'link', href:href});",
+    "  });",
+    "  document.addEventListener('keydown', function(e){",
+    "    if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); send({type:'next'}); }",
+    "    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); send({type:'prev'}); }",
+    "  });",
+    "  var raf = null;",
+    "  function report(){",
+    "    raf = null;",
+    "    var d = document.scrollingElement || document.documentElement;",
+    "    var max = (d.scrollHeight - window.innerHeight) || 1;",
+    "    send({type:'scroll', ratio: d.scrollTop / max});",
+    "  }",
+    "  document.addEventListener('scroll', function(){ if(!raf) raf = requestAnimationFrame(report); }, true);",
+    "})();"
+  ].join("\n");
+
+  // ------------------------------------------------------------- utilidades
+
+  function aviso(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("mostra");
+    clearTimeout(aviso._t);
+    aviso._t = setTimeout(function () { t.classList.remove("mostra"); }, 3500);
+  }
+
+  function buscarJson(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  function buscarTexto(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    });
+  }
+
+  function idUrl(id) { return encodeURIComponent(id); }
+
+  function ehFrontMatter(href) {
+    return /(^|\/)(title_?page|cover_?page|cover)\.(xhtml|html)$/i.test(href || "");
+  }
+
+  function indiceConteudo() {
+    if (!state.book) return 0;
+    for (var i = 0; i < state.book.spine.length; i++) {
+      if (!ehFrontMatter(state.book.spine[i])) return i;
+    }
+    return 0;
+  }
+
+  // ------------------------------------------------------------ prateleira
+
+  function modo(nome) {
+    document.body.dataset.modo = nome;
+  }
+
+  function carregarBiblioteca() {
+    return buscarJson("api/books").then(function (lista) {
+      state.books = lista;
+      $("libCount").textContent = lista.length
+        ? lista.length + (lista.length === 1 ? " livro" : " livros")
+        : "";
+      renderPrateleira();
+    }).catch(function (e) {
+      aviso("Falha ao ler a biblioteca: " + e.message);
+    });
+  }
+
+  function capaFalsa(b) {
+    var el = document.createElement("div");
+    el.className = "capa-falsa";
+    var numero = parseInt(String(b.series_index || b.id).replace(/\D/g, ""), 10) || 1;
+    var h = (numero * 47) % 360;
+    el.style.setProperty("--h", h);
+    el.style.setProperty("--h2", (h + 45) % 360);
+    var topo = document.createElement("span");
+    topo.className = "cf-topo";
+    topo.textContent = "Curso Online de Filosofia";
+    var titulo = document.createElement("span");
+    titulo.className = "cf-titulo";
+    titulo.textContent = b.title;
+    var base = document.createElement("span");
+    base.className = "cf-base";
+    base.textContent = b.author || "Olavo de Carvalho";
+    el.appendChild(topo);
+    el.appendChild(titulo);
+    el.appendChild(base);
+    return el;
+  }
+
+  function renderPrateleira() {
+    var filtro = $("filtro").value.trim().toLowerCase();
+    var grade = $("grade");
+    grade.innerHTML = "";
+    state.books.forEach(function (b) {
+      var alvo = (b.title + " " + (b.series_index || "") + " " + (b.author || "")).toLowerCase();
+      if (filtro && alvo.indexOf(filtro) < 0) return;
+
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "card" + (state.book && state.book.id === b.id ? " ativo" : "");
+      card.title = b.title;
+
+      var moldura = document.createElement("div");
+      moldura.className = "capa";
+      if (b.cover) {
+        var img = document.createElement("img");
+        img.loading = "lazy";
+        img.alt = "";
+        img.src = "api/book/" + idUrl(b.id) + "/res/" + b.cover;
+        img.onerror = function () {
+          if (img.parentNode === moldura) {
+            moldura.removeChild(img);
+            moldura.appendChild(capaFalsa(b));
+          }
+        };
+        moldura.appendChild(img);
+      } else {
+        moldura.appendChild(capaFalsa(b));
+      }
+
+      var titulo = document.createElement("div");
+      titulo.className = "titulo";
+      titulo.textContent = b.title;
+      var sub = document.createElement("div");
+      sub.className = "sub";
+      var num = b.series_index ? String(b.series_index) : "";
+      sub.textContent = [
+        num ? "Aula " + (num.length < 2 ? "0" + num : num) : "",
+        b.chapters + " capítulos"
+      ].filter(Boolean).join(" · ");
+
+      card.appendChild(moldura);
+      card.appendChild(titulo);
+      card.appendChild(sub);
+      card.addEventListener("click", function () {
+        abrirLivro(b.id);
+        document.body.classList.remove("menu");
+      });
+      grade.appendChild(card);
+    });
+  }
+
+  function irParaPrateleira() {
+    modo("prateleira");
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    $("bookTitle").textContent = "Selecione uma aula na prateleira";
+    renderPrateleira();
+  }
+
+  // ------------------------------------------------------------------ livro
+
+  function abrirLivro(id) {
+    return buscarJson("api/book/" + idUrl(id)).then(function (livro) {
+      state.book = livro;
+      modo("leitura");
+      $("bookTitle").textContent = livro.title + (livro.author ? " — " + livro.author : "");
+      localStorage.setItem("cofvis:ultimo", id);
+      try { history.replaceState(null, "", "#" + encodeURIComponent(id)); } catch (e) {}
+      renderToc();
+      renderPrateleira();
+
+      var salvo = null;
+      try { salvo = JSON.parse(localStorage.getItem("cofvis:pos:" + id) || "null"); } catch (e) {}
+      var indice = salvo && salvo.index >= 0 && salvo.index < livro.spine.length ? salvo.index : indiceConteudo();
+      if (ehFrontMatter(livro.spine[indice])) indice = indiceConteudo();
+      return mostrarCapitulo(indice, salvo && !ehFrontMatter(livro.spine[indice]) ? salvo.ratio : 0);
+    }).catch(function (e) {
+      aviso("Não foi possível abrir o livro: " + e.message);
+    });
+  }
+
+  function renderToc() {
+    var lista = $("toc");
+    lista.innerHTML = "";
+    if (!state.book) return;
+    state.book.toc.forEach(function (entrada) {
+      var li = document.createElement("li");
+      li.textContent = entrada.label;
+      li.style.paddingLeft = (0.5 + entrada.depth * 0.9) + "rem";
+      li.dataset.index = entrada.index;
+      if (entrada.index === null || entrada.index === undefined) {
+        li.className = "indisponivel";
+      } else {
+        li.addEventListener("click", function () {
+          mostrarCapitulo(entrada.index, 0);
+          document.body.classList.remove("menu");
+        });
+      }
+      lista.appendChild(li);
+    });
+    if (!state.book.toc.length) {
+      var li = document.createElement("li");
+      li.className = "indisponivel";
+      li.textContent = "Sem sumário neste arquivo";
+      lista.appendChild(li);
+    }
+  }
+
+  // --------------------------------------------------------------- capítulos
+
+  function baseDoCapitulo(i) {
+    var partes = state.book.spine[i].split("/");
+    partes.pop();
+    return "api/book/" + idUrl(state.book.id) + "/res/" + (partes.length ? partes.join("/") + "/" : "");
+  }
+
+  function cssLeitor() {
+    var css = "html{font-size:" + state.fontSize + "px !important;}";
+    css += "img,svg{max-width:100% !important;height:auto !important;}";
+    if (state.theme === "sepia") {
+      css += "html{background:#f6ecd9 !important;}body{background:#f6ecd9 !important;color:#40342a !important;}a{color:#7a5230 !important;}";
+    } else if (state.theme === "escuro") {
+      css += "html{background:#161616 !important;}body{background:#161616 !important;color:#d0d0d0 !important;}a{color:#8ab4f8 !important;}hr{border-color:#555 !important;}";
+    } else {
+      css += "html{background:#ffffff !important;}body{background:#ffffff !important;color:#111111 !important;}";
+    }
+    return css;
+  }
+
+  function montarCapitulo(html, i) {
+    var base = '<base href="' + baseDoCapitulo(i) + '">';
+    var css = '<style id="vis-css">' + cssLeitor() + "</style>";
+    var js = "<scr" + "ipt>" + IFRAME_JS + "</scr" + "ipt>";
+
+    if (/<head[^>]*>/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, "<head$1>" + base + css);
+    } else {
+      html = "<!DOCTYPE html><html><head>" + base + css + "</head><body><div id='vis-raiz'>" + html + "</div>";
+    }
+    if (/<\/body>/i.test(html)) {
+      html = html.replace(/<\/body>/i, js + "</body>");
+    } else {
+      html += js + "</body></html>";
+    }
+    return html;
+  }
+
+  function mostrarCapitulo(i, ratio) {
+    if (!state.book || i < 0 || i >= state.book.spine.length) return Promise.resolve();
+    state.idx = i;
+    state.ratio = ratio || 0;
+    return buscarTexto("api/book/" + idUrl(state.book.id) + "/chapter/" + i).then(function (html) {
+      reader.onload = function () {
+        try {
+          var win = reader.contentWindow;
+          var doc = win.document;
+          var max = doc.documentElement.scrollHeight - win.innerHeight;
+          if (state.ratio > 0 && max > 0) win.scrollTo(0, state.ratio * max);
+        } catch (e) {}
+        atualizarPosicao();
+      };
+      reader.srcdoc = montarCapitulo(html, i);
+      atualizarPosicao();
+      salvarPosicao();
+    }).catch(function (e) {
+      aviso("Erro ao carregar capítulo: " + e.message);
+    });
+  }
+
+  function proximo() { mostrarCapitulo(state.idx + 1, 0); }
+  function anterior() { mostrarCapitulo(state.idx - 1, 0); }
+
+  function salvarPosicao() {
+    if (!state.book) return;
+    try {
+      localStorage.setItem("cofvis:pos:" + state.book.id,
+        JSON.stringify({ index: state.idx, ratio: state.ratio }));
+    } catch (e) {}
+  }
+
+  function atualizarPosicao() {
+    if (!state.book) { $("pos").textContent = "—"; return; }
+    var n = state.book.spine.length;
+    var pct = Math.round(((state.idx + state.ratio) / n) * 100);
+    pct = Math.max(0, Math.min(100, pct));
+
+    var atual = null;
+    for (var k = 0; k < state.book.toc.length; k++) {
+      if (state.book.toc[k].index === state.idx) { atual = state.book.toc[k].label; break; }
+    }
+    $("pos").textContent = (atual ? atual + " · " : "") +
+      "Capítulo " + (state.idx + 1) + " de " + n + " · " + pct + "%";
+    $("barra").style.width = pct + "%";
+    $("prev").disabled = state.idx <= 0;
+    $("next").disabled = state.idx >= n - 1;
+
+    var itens = $("toc").children;
+    for (var j = 0; j < itens.length; j++) {
+      itens[j].classList.toggle("atual", Number(itens[j].dataset.index) === state.idx);
+    }
+  }
+
+  // ------------------------------------------------------------- navegação
+
+  function tratarLink(href) {
+    if (/^(https?:|mailto:|tel:)/i.test(href)) {
+      var aberto = window.open(href, "_blank");
+      if (!aberto) aviso("Link: " + href);
+      return;
+    }
+    if (href.charAt(0) === "#") {
+      try {
+        var alvo = reader.contentDocument.getElementById(decodeURIComponent(href.slice(1)));
+        if (alvo) alvo.scrollIntoView();
+      } catch (e) {}
+      return;
+    }
+    var atual = state.book.spine[state.idx].split("/");
+    atual.pop();
+    var limpo = href.split("#")[0].split("?")[0];
+    var pilha = atual.concat(limpo.split("/"));
+    var alvoPartes = [];
+    pilha.forEach(function (p) {
+      if (p === "" || p === ".") return;
+      if (p === "..") alvoPartes.pop();
+      else alvoPartes.push(p);
+    });
+    var alvoCaminho = alvoPartes.join("/");
+    for (var i = 0; i < state.book.spine.length; i++) {
+      if (state.book.spine[i] === alvoCaminho) { mostrarCapitulo(i, 0); return; }
+    }
+  }
+
+  window.addEventListener("message", function (e) {
+    var d = e.data;
+    if (!d || d.src !== "cofvis") return;
+    if (d.type === "next") proximo();
+    else if (d.type === "prev") anterior();
+    else if (d.type === "link") tratarLink(d.href);
+    else if (d.type === "scroll") {
+      state.ratio = Math.max(0, Math.min(1, d.ratio || 0));
+      atualizarPosicao();
+      salvarPosicao();
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (e.key === "ArrowRight") proximo();
+    else if (e.key === "ArrowLeft") anterior();
+  });
+
+  // ------------------------------------------------------- tema e tipografia
+
+  function aplicarTema() {
+    document.documentElement.setAttribute("data-theme", state.theme);
+    localStorage.setItem("cofvis:theme", state.theme);
+    aplicarCssLeitor();
+  }
+
+  function aplicarCssLeitor() {
+    try {
+      var estilo = reader.contentDocument && reader.contentDocument.getElementById("vis-css");
+      if (estilo) estilo.textContent = cssLeitor();
+    } catch (e) {}
+  }
+
+  function mudarFonte(passo) {
+    state.fontSize = Math.max(13, Math.min(30, state.fontSize + passo));
+    localStorage.setItem("cofvis:font", String(state.fontSize));
+    aplicarCssLeitor();
+  }
+
+  // ------------------------------------------------------------ carregar epub
+
+  function enviarArquivo(arquivo) {
+    if (!/\.epub$/i.test(arquivo.name)) {
+      aviso("Escolha um arquivo .epub");
+      return;
+    }
+    aviso("Carregando " + arquivo.name + "…");
+    fetch("api/upload?name=" + encodeURIComponent(arquivo.name), { method: "POST", body: arquivo })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        return carregarBiblioteca().then(function () { return abrirLivro(j.id); });
+      })
+      .then(function () { aviso("Adicionado à biblioteca."); })
+      .catch(function (e) { aviso("Falha ao carregar: " + e.message); });
+  }
+
+  // ------------------------------------------------------------------- init
+
+  $("btnAbrir").addEventListener("click", function () { $("arquivo").click(); });
+  $("arquivo").addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    if (f) enviarArquivo(f);
+    e.target.value = "";
+  });
+  $("btnRecarregar").addEventListener("click", function () {
+    carregarBiblioteca().then(function () { aviso("Biblioteca atualizada."); });
+  });
+  $("btnTema").addEventListener("click", function () {
+    state.theme = TEMAS[(TEMAS.indexOf(state.theme) + 1) % TEMAS.length];
+    aplicarTema();
+  });
+  $("btnFonteMais").addEventListener("click", function () { mudarFonte(1); });
+  $("btnFonteMenos").addEventListener("click", function () { mudarFonte(-1); });
+  $("prev").addEventListener("click", anterior);
+  $("next").addEventListener("click", proximo);
+  $("filtro").addEventListener("input", renderPrateleira);
+  $("btnMenu").addEventListener("click", function () { document.body.classList.toggle("menu"); });
+  $("btnPrateleira").addEventListener("click", irParaPrateleira);
+
+  window.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    document.body.classList.add("arrastando");
+  });
+  window.addEventListener("dragleave", function (e) {
+    if (e.clientX <= 0 || e.clientY <= 0) document.body.classList.remove("arrastando");
+  });
+  window.addEventListener("drop", function (e) {
+    e.preventDefault();
+    document.body.classList.remove("arrastando");
+    if (e.dataTransfer.files.length) enviarArquivo(e.dataTransfer.files[0]);
+  });
+
+  aplicarTema();
+  carregarBiblioteca().then(function () {
+    var hash = "";
+    try { hash = decodeURIComponent(location.hash.slice(1)); } catch (e) {}
+    var alvo = hash
+      ? state.books.filter(function (b) { return b.id === hash; })[0] || null
+      : null;
+    if (alvo) abrirLivro(alvo.id);
+    else irParaPrateleira();
+  });
+
+  window.addEventListener("hashchange", function () {
+    var id = "";
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) {}
+    if (!id) { irParaPrateleira(); return; }
+    if (state.book && state.book.id === id) return;
+    if (state.books.some(function (b) { return b.id === id; })) abrirLivro(id);
+  });
+})();
+</script>
+</body>
+</html>
